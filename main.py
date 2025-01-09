@@ -97,6 +97,6 @@ combined_cal_file = export_dir + "/calendar.ics"
 with open(combined_cal_file, "wb") as f:
     f.write(combined_cal.to_ical())
 
-print(datetime.now() + " Calendar export file at " + combined_cal_file)
+print(str(datetime.now()) + " Calendar export file at " + combined_cal_file)
 
 sys.exit()

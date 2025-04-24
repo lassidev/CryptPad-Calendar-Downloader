@@ -2,6 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from icalendar import Calendar, Event
 from datetime import datetime
+import logging
 import time
 import argparse
 import os
@@ -10,23 +11,48 @@ import json
 
 # arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("configjson", help="Location of the config file")
+parser.add_argument("-c",
+                    "--configfile", 
+                    default="./config.json",
+                    help="Location of the config file")
+parser.add_argument('-log',
+                    '--loglevel',
+                    default='INFO',
+                    help='Provide logging level. Example --loglevel DEBUG, default=INFO')
 args = parser.parse_args()
 
+# logging
+loglevel = args.loglevel.upper()
+if not loglevel in logging._nameToLevel.keys():
+     print(f"Incorrect loglevel {loglevel}. Setting loglevel to DEBUG")
+     loglevel = "DEBUG"
+
+logging.basicConfig(
+                    format="[%(asctime)s] [%(levelname)s] %(message)s",
+                    datefmt="%y%m%d %H:%M:%S",
+                    level=loglevel)
+
+logging.info("Starting script!")
+
 # Set variables from config.json
-f = open(args.configjson, "r")
-config_file = f.read()
-config_json = json.loads(config_file)
-calendar_urls = config_json["cryptpad_urls"]
+try:
+    f = open(args.configfile, "r")
+    config_file = f.read()
+    config_json = json.loads(config_file)
+    calendar_urls = config_json["cryptpad_urls"]
+except:
+     logging.critical("Something went wrong reading the config file")
+     sys.exit()
 download_dir = os.path.abspath(config_json["download_directory"])
 export_dir = os.path.abspath(config_json["export_directory"])
 
 # Initial perm checks
 if not os.access(download_dir, os.W_OK):
-            sys.exit("Download directory not writeable or doesn't exist! Quitting...")
+            logging.critical("Download directory not writeable or doesn't exist! Quitting...")
+            sys.exit()
 if not os.access(export_dir, os.W_OK):
-            sys.exit("Export directory not writeable or doesn't exist! Quitting...")            
-
+            logging.critical("Export directory not writeable or doesn't exist! Quitting...")
+            sys.exit()            
 
 # Main function to download ICS file from cryptpad
 def download_ics_selenium(calendar_url):
@@ -40,63 +66,88 @@ def download_ics_selenium(calendar_url):
     })
     # Headless
     chrome_options.add_argument('--headless')
+    # Incognito
+    #chrome_options.add_argument('--incognito')
     # Launch chrome
     driver = webdriver.Chrome(options=chrome_options)
+    # clear browser cache
+    driver.execute_cdp_cmd("Network.clearBrowserCache", {})
+    driver.execute_cdp_cmd('Storage.clearDataForOrigin', {"origin": '*',"storageTypes": 'all',})
+    driver.delete_all_cookies()
     # Navigate to CryptPad Calendar URL and sleep for appropiate time for UI to load
     driver.get(calendar_url)
-    time.sleep(25)
+    time.sleep(40)
     # Switch to iframe in CryptPad
     iframe = driver.find_element(By.ID, "sbox-iframe")
     driver.switch_to.frame(iframe)
     # Find and click the calendar options button
     search = driver.find_element(By.XPATH,'//*[@id="cp-sidebarlayout-leftside"]/div/div[2]/span[3]/button')
     search.click()
-    time.sleep(5)
+    time.sleep(10)
     # Find and click the Export button
     search = driver.find_element(By.XPATH,'//*[@id="cp-sidebarlayout-leftside"]/div/div[2]/span[3]/div/ul/li[3]/a')
     search.click()
-    time.sleep(5)
+    time.sleep(10)
     # Download calendar file
     search = driver.find_element(By.XPATH,'/html/body/div[5]/div/div/nav/button[2]')
     search.click()
-    time.sleep(5)
+    time.sleep(10)
     # sleep for a while for the download to go through
-    time.sleep(10) 
+    time.sleep(20) 
     # Close browser
     driver.quit()
 
 # Download the ICS files one by one
-for calendar_url in calendar_urls:
-    download_ics_selenium(calendar_url)
+def download_calendars(calendar_urls):
+    for calendar_url in calendar_urls:
+        try:
+            download_ics_selenium(calendar_url)
+            logging.info("Downloaded .ics from %s", calendar_url)
+            logging.debug('Files in download dir: \n%s', str(os.listdir(download_dir)))
+        except:
+            logging.critical("Something went wrong")
+    logging.info('All files:\n%s', str(os.listdir(download_dir)))
+
 
 # Create the combined calendar object
-combined_cal = Calendar()
-combined_cal.add('prodid', '-//icalcombine//TODO//EN')
-combined_cal.add('version', '2.0')
+def combined_calendar():
+    combined_cal = Calendar()
+    combined_cal.add('prodid', '-//icalcombine//ORG//EN')
+    combined_cal.add('version', '2.0')
+    logging.debug("Created combined calendar object")
 
-# Start parsing downloaded ICS files
-for ics in os.listdir(download_dir):
-    # Get the full filepath
-    ics_filepath_temp = download_dir + "/" + ics
-    ics_filepath = os.path.abspath(ics_filepath_temp)
-    # Remove UTF-8 BOM
-    # https://stackoverflow.com/questions/55588551/google-calendar-not-showing-events-from-icalendar-ics-file-hosted-on-s3
-    # https://stackoverflow.com/questions/8898294/convert-utf-8-with-bom-to-utf-8-with-no-bom-in-python
-    s = open(ics_filepath, mode='r', encoding='utf-8-sig').read()
-    open(ics_filepath, mode='w', encoding='utf-8').write(s)
-    # Open the ICS file and read every event, then add to combined calendar object
-    with open(ics_filepath, "r") as f:
-        ics_stream = Calendar.from_ical(f.read())
-    for event in ics_stream.walk('VEVENT'):
-        combined_cal.add_component(event)
-    # Delete the downloaded ICS file
-    os.remove(ics_filepath)
+    # Start parsing downloaded ICS files
+    for ics in os.listdir(download_dir):
+        try:
+            logging.debug(" Reading from ics %s", ics)
+            # Get the full filepath
+            ics_filepath_temp = download_dir + "/" + ics
+            ics_filepath = os.path.abspath(ics_filepath_temp)
+            # Remove UTF-8 BOM
+            # https://stackoverflow.com/questions/55588551/google-calendar-not-showing-events-from-icalendar-ics-file-hosted-on-s3
+            # https://stackoverflow.com/questions/8898294/convert-utf-8-with-bom-to-utf-8-with-no-bom-in-python
+            s = open(ics_filepath, mode='r', encoding='utf-8-sig').read()
+            open(ics_filepath, mode='w', encoding='utf-8').write(s)
+            # Open the ICS file and read every event, then add to combined calendar object
+            with open(ics_filepath, "r") as f:
+                ics_stream = Calendar.from_ical(f.read())
+            for event in ics_stream.walk('VEVENT'):
+                combined_cal.add_component(event)
+                logging.debug("Event created: %s", str(event.get("summary")))
+            # Delete the downloaded ICS file
+            os.remove(ics_filepath)
+        except:
+             logging.critical("Something went wrong")
 
-# Write the parsed events to a new ICS file in the export dir
-combined_cal_file = export_dir + "/calendar.ics"
-with open(combined_cal_file, "wb") as f:
-    f.write(combined_cal.to_ical())
+    # Write the parsed events to a new ICS file in the export dir
+    combined_cal_file = export_dir + "/calendar.ics"
+    with open(combined_cal_file, "wb") as f:
+        f.write(combined_cal.to_ical())
 
-print(str(datetime.now()) + " Calendar export file at " + combined_cal_file)
+    logging.info("Calendar export file at %s", combined_cal_file)
+
+
+download_calendars(calendar_urls)
+combined_calendar()
 
 sys.exit()

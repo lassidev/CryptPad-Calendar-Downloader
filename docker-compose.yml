@@ -1,0 +1,9 @@
+services:
+  ubuntu-cryptpad-downloader-prod:
+    container_name: ubuntu-cryptpad-downloader-prod
+    image: ubuntu-cryptpad-downloader
+    volumes:
+    - ./app:/app
+    working_dir: /app
+    entrypoint: python3
+    command: ["downloader.py", "--config" "./config.json", "--loglevel", "debug"]

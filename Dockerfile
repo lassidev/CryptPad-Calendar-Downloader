@@ -13,9 +13,3 @@ ENV PIP_BREAK_SYSTEM_PACKAGES 1
 RUN pip3 install selenium
 RUN pip3 install webdriver-manager
 RUN pip3 install icalendar
-
-# Set the working directory
-WORKDIR /app
-
-# Define the command to execute your script
-CMD ["python3", "main.py", "config.json"]

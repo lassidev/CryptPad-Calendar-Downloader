@@ -160,6 +160,8 @@ def combined_calendar():
             ics_filepath = os.path.abspath(os.path.join(download_dir, ics))
 
             # Remove UTF-8 BOM
+            # https://stackoverflow.com/questions/55588551/google-calendar-not-showing-events-from-icalendar-ics-file-hosted-on-s3
+            # https://stackoverflow.com/questions/8898294/convert-utf-8-with-bom-to-utf-8-with-no-bom-in-python
             s = open(ics_filepath, mode='r', encoding='utf-8-sig').read()
             open(ics_filepath, mode='w', encoding='utf-8').write(s)
 

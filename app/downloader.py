@@ -32,7 +32,7 @@ logging.basicConfig(
                     datefmt="%y%m%d %H:%M:%S",
                     level=loglevel)
 
-logging.info("Starting script!")
+logging.info("Starting script!\n\n\n")
 
 # Set variables from config.json
 try:
@@ -105,8 +105,8 @@ def download_calendars(calendar_urls):
             logging.info("Downloaded .ics from %s", calendar_url)
             logging.debug('Files in download dir: \n%s', str(os.listdir(download_dir)))
         except:
-            logging.critical("Something went wrong")
-    logging.info('All files:\n%s', str(os.listdir(download_dir)))
+            logging.critical("Something went wrong downloading the ics file from %s", calendar_url)
+    logging.info('All files (Calendar-name.ics):\n%s', str(os.listdir(download_dir)))
 
 
 # Create the combined calendar object
@@ -116,13 +116,19 @@ def combined_calendar():
     combined_cal.add('version', '2.0')
     logging.debug("Created combined calendar object")
 
+    ics_files = os.listdir(download_dir)
+    if not ics_files:
+         logging.critical("No ics files seem to be in the download directory. quitting...")
+         return
+    else:
+         logging.debug("ics files in directory:")
+
     # Start parsing downloaded ICS files
-    for ics in os.listdir(download_dir):
+    for ics in ics_files:
         try:
-            logging.debug(" Reading from ics %s", ics)
+            logging.debug(" Reading from ics file %s", ics)
             # Get the full filepath
-            ics_filepath_temp = download_dir + "/" + ics
-            ics_filepath = os.path.abspath(ics_filepath_temp)
+            ics_filepath = os.path.abspath(download_dir + "/" + ics)
             # Remove UTF-8 BOM
             # https://stackoverflow.com/questions/55588551/google-calendar-not-showing-events-from-icalendar-ics-file-hosted-on-s3
             # https://stackoverflow.com/questions/8898294/convert-utf-8-with-bom-to-utf-8-with-no-bom-in-python
@@ -137,7 +143,7 @@ def combined_calendar():
             # Delete the downloaded ICS file
             os.remove(ics_filepath)
         except:
-             logging.critical("Something went wrong")
+             logging.critical("Something went wrong reading from ics file %s", ics)
 
     # Write the parsed events to a new ICS file in the export dir
     combined_cal_file = export_dir + "/calendar.ics"

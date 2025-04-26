@@ -158,24 +158,30 @@ def download_ics_selenium(calendar_url, download_dir):
         # Switch to iframe in CryptPad
         iframe = driver.find_element(By.ID, "sbox-iframe")
         driver.switch_to.frame(iframe)
+        logging.debug("Iframe found, switching to")
 
         # Find and click the calendar options button
         search = wait_for_element(driver, By.XPATH, '//*[@id="cp-sidebarlayout-leftside"]/div/div[2]/span[3]/button')
         search.click()
+        logging.debug("Clicking calendar options button")
 
         # Find and click the Export button
         search = wait_for_element(driver, By.XPATH, '//*[@id="cp-sidebarlayout-leftside"]/div/div[2]/span[3]/div/ul/li[3]/a')
         search.click()
+        logging.debug("Clicking the calendar export button")
 
         # Download calendar file
         search = wait_for_element(driver, By.XPATH, '/html/body/div[5]/div/div/nav/button[2]')
+        logging.debug("Found download button")
         search.click()
+        logging.debug("Clicked download button, file available?")
 
         # Wait for download to complete (adjust timeout as needed)
         WebDriverWait(driver, 20).until(lambda d: len(os.listdir(download_dir)) > 0)
+        logging.debug("Files in download dir:\n%s",str(os.listdir(download_dir)))
 
     except Exception as e:
-        logging.error("Error during download: %s", e)
+            logging.error("Error during download from URL %s: %s", calendar_url, e, exc_info=True)
 
     finally:
         driver.quit()

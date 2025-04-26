@@ -132,6 +132,8 @@ def download_calendars(calendar_urls):
             logging.critical(
                 "Something went wrong downloading the ics file from %s", calendar_url
             )
+        except KeyboardInterrupt:
+            logging.debug('Ctrl+C detected, skipping URL %s', calendar_url)
     logging.info('All files (Calendar-name.ics):\n%s', str(os.listdir(download_dir)))
 
 

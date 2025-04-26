@@ -26,14 +26,42 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-# Logging
+# Logging setup with color formatter
+# ANSI color codes
+RESET = "\x1b[0m"
+BOLD = "\x1b[1m"
+RED = "\x1b[31m"
+YELLOW = "\x1b[33m"
+GREEN = "\x1b[32m"
+BLUE = "\x1b[34m"
+
+# Custom logging formatter to style levelname with colors
+class ColorFormatter(logging.Formatter):
+    LEVEL_COLORS = {
+        logging.CRITICAL: f"{BOLD}{RED}",
+        logging.ERROR: f"{BOLD}{RED}",
+        logging.WARNING: f"{BOLD}{YELLOW}",
+        logging.INFO: f"{BOLD}{GREEN}",
+        logging.DEBUG: f"{BOLD}{BLUE}",
+    }
+
+    def format(self, record):
+        original_levelname = record.levelname
+        color = self.LEVEL_COLORS.get(record.levelno, "")
+        record.levelname = f"{color}{original_levelname}{RESET}"
+        formatted_message = super().format(record)
+        record.levelname = original_levelname  # Restore original levelname
+        return formatted_message
+
 loglevel = args.loglevel.upper()
 if loglevel not in logging._nameToLevel.keys():
     print(f"Incorrect loglevel {loglevel}. Setting loglevel to DEBUG")
     loglevel = "DEBUG"
 
+handler = logging.StreamHandler()
+handler.setFormatter(ColorFormatter("[%(asctime)s][%(levelname)s][%(funcName)s:%(lineno)d] %(message)s"))
 logging.basicConfig(
-    format="[%(asctime)s] [%(levelname)s] %(message)s",
+    handlers=[handler],
     datefmt="%y%m%d %H:%M:%S",
     level=loglevel
 )

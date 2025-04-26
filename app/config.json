@@ -1,0 +1,7 @@
+{
+    "cryptpad_urls" : [
+        "https://cryptpad.fr/calendar/#/2/calendar/view/TODOCALENDARURL",
+        "https://cryptpad.fr/calendar/#/2/calendar/view/TODOCALENDARURL2"],
+    "download_directory":"./download_dir",
+    "export_directory":"./export_dir"
+}
